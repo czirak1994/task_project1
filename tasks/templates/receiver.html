@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Feladatok Fogadása</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #0056b3;
+        }
+
+        #task-list {
+            background-color: #ffffff;
+            border: 2px solid #0056b3;
+            padding: 10px;
+            width: 80%;
+            margin: auto;
+        }
+
+        .task {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #e7eff9;
+            cursor: pointer;
+        }
+
+        .task.selected {
+            background-color: #b3d4fc;
+        }
+
+        .task.disabled {
+            background-color: #ddd;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <center><h1>Feladatok Fogadása</h1>
+    <p>Bejelentkezve: {{ user.username }}</p>
+    <div id="task-list"></div>
+    <button id="complete-button">Teljesít</button></center>
+
+    <script>
+        var username = "{{ user.username }}";
+        const taskListDiv = document.getElementById('task-list');
+        const completeButton = document.getElementById('complete-button');
+
+        // WebSocket kapcsolat létrehozása
+        const socket = new WebSocket('ws://' + window.location.host + '/ws/tasks/');
+
+        // WebSocket kapcsolat kezelése
+        socket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.type === 'task_created') {
+                addTask(data.task);
+            } else if (data.type === 'task_selected') {
+                disableTask(data.task_id, data.username);
+            } else if (data.type === 'task_deselected') {
+                enableTask(data.task_id);
+            } else if (data.type === 'task_completed') {
+                removeTask(data.task_id);
+            }
+        };
+
+        // Új feladat hozzáadása a listához
+        function addTask(task) {
+            if (!task.completed) {
+                const taskDiv = document.createElement('div');
+                taskDiv.classList.add('task');
+                taskDiv.textContent = task.title;
+                taskDiv.dataset.taskId = task.id;
+                if (task.is_selected) {
+                    if (task.selected_by === username) {
+                        taskDiv.classList.add('selected');
+                        taskDiv.onclick = function() {
+                            deselectTask(task.id, taskDiv);
+                        };
+                    } else {
+                        taskDiv.classList.add('disabled');
+                        taskDiv.textContent += ` - Kiválasztva: ${task.selected_by}`;
+                    }
+                } else {
+                    taskDiv.onclick = function() {
+                        selectTask(task.id, taskDiv);
+                    };
+                }
+                taskListDiv.appendChild(taskDiv);
+            }
+        }
+
+        // Feladat kiválasztása
+        function selectTask(taskId, taskDiv) {
+            fetch('/api/select-task/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    'task_id': taskId,
+                    'username': username,
+                    'action': 'select'
+                })
+            }).then(response => {
+                if (response.ok) {
+                    taskDiv.classList.add('selected');
+                    taskDiv.onclick = function() {
+                        deselectTask(taskId, taskDiv);
+                    };
+                } else {
+                    console.error('Task already selected');
+                }
+            }).catch(error => console.error('Error selecting task:', error));
+        }
+
+        // Feladat feloldása
+        function deselectTask(taskId, taskDiv) {
+            fetch('/api/select-task/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    'task_id': taskId,
+                    'username': username,
+                    'action': 'deselect'
+                })
+            }).then(response => {
+                if (response.ok) {
+                    taskDiv.classList.remove('selected');
+                    taskDiv.onclick = function() {
+                        selectTask(taskId, taskDiv);
+                    };
+                } else {
+                    console.error('Error deselecting task');
+                }
+            }).catch(error => console.error('Error deselecting task:', error));
+        }
+
+        // Feladat letiltása más felhasználó számára
+        function disableTask(taskId, username) {
+            const taskDiv = document.querySelector(`.task[data-task-id='${taskId}']`);
+            if (taskDiv) {
+                taskDiv.classList.add('disabled');
+                taskDiv.classList.remove('selected');
+                taskDiv.textContent += ` - Kiválasztva: ${username}`;
+                taskDiv.onclick = null;
+            }
+        }
+
+        // Feladat engedélyezése
+        function enableTask(taskId) {
+            const taskDiv = document.querySelector(`.task[data-task-id='${taskId}']`);
+            if (taskDiv) {
+                taskDiv.classList.remove('disabled');
+                taskDiv.textContent = taskDiv.textContent.replace(/ - Kiválasztva:.*$/, '');
+                taskDiv.onclick = function() {
+                    selectTask(taskId, taskDiv);
+                };
+            }
+        }
+
+        // Feladat eltávolítása
+        function removeTask(taskId) {
+            const taskDiv = document.querySelector(`.task[data-task-id='${taskId}']`);
+            if (taskDiv) {
+                taskDiv.remove();
+            }
+        }
+
+        // Kezdeti adatok betöltése az API végpontról
+        fetch('/api/tasks/')
+            .then(response => response.json())
+            .then(tasks => {
+                tasks.forEach(task => {
+                    addTask(task);
+                });
+            })
+            .catch(error => console.error('Error loading tasks:', error));
+
+        // Kiválasztott feladatok teljesítése
+        completeButton.addEventListener('click', function() {
+            const selectedTasks = [];
+            document.querySelectorAll('.task.selected').forEach(taskDiv => {
+                selectedTasks.push(taskDiv.dataset.taskId);
+            });
+
+            if (selectedTasks.length > 0) {
+                fetch('/api/complete-tasks/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ task_ids: selectedTasks,
+                                            completed_by: username })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        return response.json().then(data => {
+                            throw new Error(data.message);
+                        });
+                    }
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        selectedTasks.forEach(taskId => {
+                            removeTask(taskId);
+                        });
+                    } else {
+                        console.error('Failed to complete tasks:', data.message);
+                    }
+                })
+                .catch(error => console.error('Failed to complete tasks:', error));
+            } else {
+                console.log('No tasks selected.');
+            }
+        });
+
+        function getCookie(name) {
+            let value = `; ${document.cookie}`;
+            let parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+    </script>
+</body>
+</html>

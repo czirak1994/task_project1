@@ -1,0 +1,144 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Feladatok Kiválasztása és Elküldése</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        #task-list {
+            margin: 20px 0;
+        }
+        .task-button {
+            display: block;
+            width: 90%;
+            background-color: #ffffff;
+            border: 2px solid #007BFF;
+            color: #007BFF;
+            padding: 10px 20px;
+            margin: 10px auto;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .task-button:hover {
+            background-color: #007BFF;
+            color: #ffffff;
+        }
+        .selected {
+            background-color: #007BFF; /* Blue background for selected buttons */
+            color: white;
+        }
+        #send-button {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+#send-button:hover {
+    opacity: 0.8;
+}
+        .collapsible {
+            background-color: #777;
+            color: white;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+        }
+        
+        .active, .collapsible:hover {
+            background-color: #555;
+        }
+        
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+    {% for task_title in task_titles %}
+        <button class="collapsible">Group: {{ task_title.task_group.name }}</button>
+        <div class="content">
+            {% for task in tasks %}
+                <button class="task-button">{{ task_title.title }}</button>
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+    <center><button id="send-button">Feladatok küldése</button></center>
+</body>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.collapsible').forEach(button => {
+                button.addEventListener('click', function() {
+                    this.classList.toggle("active");
+                    var content = this.nextElementSibling;
+                    if (content.style.display === "block") {
+                        content.style.display = "none";
+                    } else {
+                        content.style.display = "block";
+                    }
+                });
+            });
+        
+            document.querySelectorAll('.task-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                });
+            });
+        
+            document.getElementById('send-button').addEventListener('click', function() {
+                const selectedTasks = document.querySelectorAll('.task-button.selected');
+                selectedTasks.forEach(task => {
+                    fetch('/api/tasks/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({
+                            title: task.textContent,
+                            description: "1",
+                            created_by: "{{ user.username }}",
+                        })
+                    }).then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    }).then(data => {
+                        console.log(data);
+                    }).catch(e => {
+                        console.log('Hiba: ' + e.message);
+                    });
+                });
+            });
+        });
+    </script>
+        
+
+  
+</body>
+</html>

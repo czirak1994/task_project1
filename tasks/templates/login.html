@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Bejelentkezés</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        #task-list {
+            margin: 20px 0;
+        }
+        .task-button {
+            display: block;
+            width: 90%;
+            background-color: #ffffff;
+            border: 2px solid #007BFF;
+            color: #007BFF;
+            padding: 10px 20px;
+            margin: 10px auto;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .task-button:hover {
+            background-color: #007BFF;
+            color: #ffffff;
+        }
+        .selected {
+            background-color: #007BFF; /* Blue background for selected buttons */
+            color: white;
+        }
+        #submit {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        #submit:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<center><body>
+    <h1>Bejelentkezés</h1>
+    <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+        <input type="text" id="username" name="username" required placeholder="Felhasználónév"><br><br>
+        <input type="password" id="password" name="password" required placeholder="Jelszó"><br><br>
+        <button type="submit" class="submit">Bejelentkezés</button>
+    </form>
+    {% if form.errors %}
+        <p>Hibás felhasználónév vagy jelszó.</p>
+    {% endif %}
+</body></center>
+</html>
