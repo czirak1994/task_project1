@@ -33,9 +33,9 @@ def login_view(request):
             login(request, user)
             # Átirányítás csoport alapján
             if user.groups.filter(name='keszletezo').exists():
-                return redirect('receiver')
-            elif user.groups.filter(name='raktaros').exists():
                 return redirect('tasks')
+            elif user.groups.filter(name='raktaros').exists():
+                return redirect('receiver')
             else:
                 return redirect('home')
         else:
